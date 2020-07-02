@@ -1,0 +1,160 @@
+<html>
+<head>
+	<meta charset='UTF-8'>
+	<title>NASA Snapshots</title>
+	<style>
+		.snapshots-input {
+			display: grid;
+			grid-template-columns: 220px 220px 220px 220px;
+			grid-gap: 6px;
+		}
+		.snapshots-input-group {
+			display: grid;
+			grid-template-columns: 60px 140px;
+		}
+		.snapshots-request {
+			padding-top: 20px;
+			padding-bottom: 25px;
+		}
+		td {
+			padding: 5px;
+		}
+	</style>
+</head>
+<body>
+	<h1>NASA Snapshots</h1>
+
+	<p>
+		<div>
+			<a href='https://wvs.earthdata.nasa.gov/'>NASA Snapshots</a>
+		</div>
+	
+		<div>
+			<a href='https://worldview.earthdata.nasa.gov/'>NASA Worldview</a>
+		</div>
+	</p>
+
+	<div class='snapshots-input'>
+		<h4>Date Range</h4>
+		<h4>Longitude</h4>
+		<h4>Latitude</h4>
+		<h4>Image Size (Pixel)</h4>
+
+		<div class='snapshots-input-group'>
+			<label for="start_date">start:</label>
+			<input id='start_date' type='text' value='2020-01-07'>
+		</div>
+		<div class='snapshots-input-group'>
+			<label for="longitude_min">min:</label>
+			<input id='longitude_min' type='text' value='-66.4'>
+		</div>
+		<div class='snapshots-input-group'>
+			<label for="latitude_min">min:</label>
+			<input id='latitude_min' type='text' value='3.6'>
+		</div>
+		<div class='snapshots-input-group'>
+			<label for="image_width">width:</label>
+			<input id='image_width' type='text' value='500'>
+		</div>
+
+		<div class='snapshots-input-group'>
+			<label for="end_date">end:</label>
+			<input id='end_date' type='text' value='2020-01-12'>
+		</div>
+		<div class='snapshots-input-group'>
+			<label for="longitude_max">max:</label>
+			<input id='longitude_max' type='text' value='-48.0'>
+		</div>
+		<div class='snapshots-input-group'>
+			<label for="latitude_max">max:</label>
+			<input id='latitude_max' type='text' value='20.0'>
+		</div>
+		<div class='snapshots-input-group'>
+		</div>
+
+		<div class='snapshots-request'>
+			<button onclick='request_snapshots()'>Request</button>
+		</div>
+	</div>
+
+	
+
+	<p>
+		<table id='nasa_snapshot_table'>
+			<thead>
+				<tr>
+					<th>Date</th>
+					<th>Terra (MODIS)</th>
+					<th>Aqua (MODIS)</th>
+				</tr>
+			</thead>
+			<tbody>
+			</tbody>
+		</table>
+	</p>
+	
+	<script src='https://cdnjs.cloudflare.com/ajax/libs/d3/5.16.0/d3.min.js'></script>
+	<script>
+		function request_snapshots() {
+			const start_date = new Date(document.getElementById('start_date').value)
+			const end_date = new Date(document.getElementById('end_date').value)
+
+			console.log(start_date, end_date)
+			
+			const time_format = d3.timeFormat('%Y-%m-%d')
+		
+			const tbody = d3.select('#nasa_snapshot_table').select('tbody')
+
+			tbody.selectAll('tr').remove()
+
+			tbody.selectAll('tr')
+				.data(d3.timeDay.range(start_date, end_date))
+				.enter()
+				.each(d => {
+					const tr = tbody.append('tr')
+					tr.append('td').text(time_format(d))
+					add_nasa_snapshot(tr.append('td'), 'Terra', time_format(d))
+					add_nasa_snapshot(tr.append('td'), 'Aqua', time_format(d))
+				})
+		}
+		
+		function add_nasa_snapshot(cell, satellite, time) {
+			const latitude_min = parseFloat(document.getElementById('latitude_min').value) // 3.6
+			const latitude_max = parseFloat(document.getElementById('latitude_max').value) // 20.0
+			const longitude_min = parseFloat(document.getElementById('longitude_min').value) // -66.4
+			const longitude_max = parseFloat(document.getElementById('longitude_max').value) // -48.0
+
+			const scale_factor = (longitude_max - longitude_min) // 1.123
+			/ (latitude_max - latitude_min)
+
+			const width = parseInt(document.getElementById('image_width').value) // 500 //'419'//'2094'
+			const height = Math.round(width / scale_factor) //'373'//'1866'
+
+			const bbox_str = String(latitude_min) // '3.6,-66.4,20.0,-48.0'
+			+ ',' + String(longitude_min)
+			+ ',' + String(latitude_max)
+			+ ',' + String(longitude_max)
+
+			const v_str = String(longitude_min) // -66.4,3.6,-48,20
+			+ ',' + String(latitude_min)
+			+ ',' + String(longitude_max)
+			+ ',' + String(latitude_max)
+
+			console.log(bbox_str, v_str, scale_factor, width, height)
+
+			const layers = 'MODIS_' + satellite + '_CorrectedReflectance_TrueColor'
+			
+			cell.append('a')
+				.attr('href', 'https://worldview.earthdata.nasa.gov/?p=geographic&l=' + layers + '&t=' + time + '&v=' + v_str)
+				.attr('target', '_blank')
+				.attr('rel', 'noopener noreferrer')
+				.append('img')
+				.attr('src', 'https://wvs.earthdata.nasa.gov/api/v1/snapshot?REQUEST=GetSnapshot&LAYERS=' + layers + '&CRS=EPSG:4326&TIME=' + time + '&WRAP=DAY&BBOX=' + bbox_str + '&FORMAT=image/png&WIDTH=' + String(width) + '&HEIGHT=' + String(height) + '&AUTOSCALE=TRUE')
+				// .attr('width', 300)
+		}
+	</script>
+	<script>
+		request_snapshots()
+	</script>
+</body>
+</html>
