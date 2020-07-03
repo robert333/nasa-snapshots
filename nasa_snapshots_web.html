@@ -1,16 +1,16 @@
 <html>
 <head>
 	<meta charset='UTF-8'>
-	<title>NASA Snapshots</title>
+	<title>NASA Terra/Aqua MODIS Snapshots</title>
 	<style>
 		.snapshots-input {
 			display: grid;
-			grid-template-columns: 220px 220px 220px 220px;
+			grid-template-columns: 200px 200px 200px 200px;
 			grid-gap: 6px;
 		}
 		.snapshots-input-group {
 			display: grid;
-			grid-template-columns: 60px 140px;
+			grid-template-columns: 60px 100px;
 		}
 		.snapshots-request {
 			padding-top: 20px;
@@ -22,7 +22,7 @@
 	</style>
 </head>
 <body>
-	<h1>NASA Snapshots</h1>
+	<h2>NASA Terra/Aqua MODIS Snapshots</h2>
 
 	<p>
 		<div>
@@ -31,6 +31,10 @@
 	
 		<div>
 			<a href='https://worldview.earthdata.nasa.gov/'>NASA Worldview</a>
+		</div>
+	
+		<div>
+			<a href='https://earth.esa.int/web/guest/missions/3rd-party-missions/current-missions/terraaqua-modis'>Terra/Aqua MODIS Information</a>
 		</div>
 	</p>
 
@@ -93,13 +97,16 @@
 		</table>
 	</p>
 	
-	<script src='https://cdnjs.cloudflare.com/ajax/libs/d3/5.16.0/d3.min.js'></script>
+	<script src='https://d3js.org/d3.v5.min.js'></script>
+	<script src='https://momentjs.com/downloads/moment.min.js'></script>
+
 	<script>
 		function request_snapshots() {
-			const start_date = new Date(document.getElementById('start_date').value)
-			const end_date = new Date(document.getElementById('end_date').value)
+			const start_date_str = document.getElementById('start_date').value
+			const end_date_str = document.getElementById('end_date').value
 
-			console.log(start_date, end_date)
+			const start_date = moment(start_date_str)
+			const end_date = moment(end_date_str).add(1, 'days')
 			
 			const time_format = d3.timeFormat('%Y-%m-%d')
 		
@@ -108,7 +115,7 @@
 			tbody.selectAll('tr').remove()
 
 			tbody.selectAll('tr')
-				.data(d3.timeDay.range(start_date, end_date))
+				.data(d3.timeDay.range(start_date.toDate(), end_date.toDate()))
 				.enter()
 				.each(d => {
 					const tr = tbody.append('tr')
@@ -118,24 +125,23 @@
 				})
 		}
 		
-		function add_nasa_snapshot(cell, satellite, time) {
-			const latitude_min = parseFloat(document.getElementById('latitude_min').value) // 3.6
-			const latitude_max = parseFloat(document.getElementById('latitude_max').value) // 20.0
-			const longitude_min = parseFloat(document.getElementById('longitude_min').value) // -66.4
-			const longitude_max = parseFloat(document.getElementById('longitude_max').value) // -48.0
+		function add_nasa_snapshot(table_cell, satellite, time) {
+			const latitude_min = parseFloat(document.getElementById('latitude_min').value)
+			const latitude_max = parseFloat(document.getElementById('latitude_max').value)
+			const longitude_min = parseFloat(document.getElementById('longitude_min').value)
+			const longitude_max = parseFloat(document.getElementById('longitude_max').value)
 
-			const scale_factor = (longitude_max - longitude_min) // 1.123
-			/ (latitude_max - latitude_min)
+			const scale_factor = (longitude_max - longitude_min) / (latitude_max - latitude_min)
 
-			const width = parseInt(document.getElementById('image_width').value) // 500 //'419'//'2094'
-			const height = Math.round(width / scale_factor) //'373'//'1866'
+			const width = parseInt(document.getElementById('image_width').value)
+			const height = Math.round(width / scale_factor)
 
-			const bbox_str = String(latitude_min) // '3.6,-66.4,20.0,-48.0'
+			const bbox_str = String(latitude_min)
 			+ ',' + String(longitude_min)
 			+ ',' + String(latitude_max)
 			+ ',' + String(longitude_max)
 
-			const v_str = String(longitude_min) // -66.4,3.6,-48,20
+			const v_str = String(longitude_min)
 			+ ',' + String(latitude_min)
 			+ ',' + String(longitude_max)
 			+ ',' + String(latitude_max)
@@ -144,13 +150,12 @@
 
 			const layers = 'MODIS_' + satellite + '_CorrectedReflectance_TrueColor'
 			
-			cell.append('a')
+			table_cell.append('a')
 				.attr('href', 'https://worldview.earthdata.nasa.gov/?p=geographic&l=' + layers + '&t=' + time + '&v=' + v_str)
 				.attr('target', '_blank')
 				.attr('rel', 'noopener noreferrer')
 				.append('img')
 				.attr('src', 'https://wvs.earthdata.nasa.gov/api/v1/snapshot?REQUEST=GetSnapshot&LAYERS=' + layers + '&CRS=EPSG:4326&TIME=' + time + '&WRAP=DAY&BBOX=' + bbox_str + '&FORMAT=image/png&WIDTH=' + String(width) + '&HEIGHT=' + String(height) + '&AUTOSCALE=TRUE')
-				// .attr('width', 300)
 		}
 	</script>
 	<script>
