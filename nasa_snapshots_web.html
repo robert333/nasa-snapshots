@@ -42,7 +42,7 @@
 		<h4>Date Range</h4>
 		<h4>Longitude</h4>
 		<h4>Latitude</h4>
-		<h4>Image Size (Pixel)</h4>
+		<h4>Image</h4>
 
 		<div class='snapshots-input-group'>
 			<label for="start_date">start:</label>
@@ -50,11 +50,11 @@
 		</div>
 		<div class='snapshots-input-group'>
 			<label for="longitude_min">min:</label>
-			<input id='longitude_min' type='text' value='-66.4'>
+			<input id='longitude_min' type='text' value='-60'>
 		</div>
 		<div class='snapshots-input-group'>
 			<label for="latitude_min">min:</label>
-			<input id='latitude_min' type='text' value='3.6'>
+			<input id='latitude_min' type='text' value='6'>
 		</div>
 		<div class='snapshots-input-group'>
 			<label for="image_width">width:</label>
@@ -67,21 +67,24 @@
 		</div>
 		<div class='snapshots-input-group'>
 			<label for="longitude_max">max:</label>
-			<input id='longitude_max' type='text' value='-48.0'>
+			<input id='longitude_max' type='text' value='-50.0'>
 		</div>
 		<div class='snapshots-input-group'>
 			<label for="latitude_max">max:</label>
-			<input id='latitude_max' type='text' value='20.0'>
+			<input id='latitude_max' type='text' value='16.0'>
 		</div>
 		<div class='snapshots-input-group'>
+			<div></div>
+			<div>
+				<input type="checkbox" id="image_overlay" checked>
+  				<label for="image_overlay">overlay</label>
+			</div>
 		</div>
 
 		<div class='snapshots-request'>
 			<button onclick='request_snapshots()'>Request</button>
 		</div>
 	</div>
-
-	
 
 	<p>
 		<table id='nasa_snapshot_table'>
@@ -130,6 +133,7 @@
 			const latitude_max = parseFloat(document.getElementById('latitude_max').value)
 			const longitude_min = parseFloat(document.getElementById('longitude_min').value)
 			const longitude_max = parseFloat(document.getElementById('longitude_max').value)
+			const show_image_overlay = document.getElementById('image_overlay').checked
 
 			const scale_factor = (longitude_max - longitude_min) / (latitude_max - latitude_min)
 
@@ -150,14 +154,67 @@
 
 			const layers = 'MODIS_' + satellite + '_CorrectedReflectance_TrueColor'
 			
-			table_cell.append('a')
+			const worldview_link = table_cell.append('a')
 				.attr('href', 'https://worldview.earthdata.nasa.gov/?p=geographic&l=' + layers + '&t=' + time + '&v=' + v_str)
 				.attr('target', '_blank')
 				.attr('rel', 'noopener noreferrer')
-				.append('img')
+			
+			const container = worldview_link.append('div')
+				.style('position', 'relative')
+			
+			const worldview_image = container.append('img')
 				.attr('src', 'https://wvs.earthdata.nasa.gov/api/v1/snapshot?REQUEST=GetSnapshot&LAYERS=' + layers + '&CRS=EPSG:4326&TIME=' + time + '&WRAP=DAY&BBOX=' + bbox_str + '&FORMAT=image/png&WIDTH=' + String(width) + '&HEIGHT=' + String(height) + '&AUTOSCALE=TRUE')
+				.style('z-index', -1)
+				.style('position', 'absolute')
+				.style('left', '0px')
+				.style('top', '0px')
+			
+			const worldview_canvas = container.append('canvas')
+				.attr('width', width)
+				.attr('height', height)
+
+			const context = worldview_canvas.node().getContext('2d')
+
+			function get_pos(lon, lat) {
+				const x = (lon - longitude_min) / (longitude_max - longitude_min) * width
+				const y = (latitude_max - lat) / (latitude_max - latitude_min) * height
+				return [x, y]
+			}
+
+			function draw_line(lon_a, lat_a, lon_b, lat_b) {
+				const pos_a = get_pos(lon_a, lat_a)
+				const pos_b = get_pos(lon_b, lat_b)
+				console.log(pos_a, pos_b)
+				context.beginPath()
+				context.moveTo(pos_a[0], pos_a[1])
+				context.lineTo(pos_b[0], pos_b[1])
+				context.lineWidth = 1
+				context.strokeStyle = '#ff0000'//'#00ff00'
+				context.stroke()
+			}
+
+			function draw_circle(lon, lat) {
+				const pos = get_pos(lon, lat)
+				const size = 1 / (longitude_max - longitude_min) * width
+				context.beginPath()
+				context.arc(pos[0], pos[1], size, 0, 2 * Math.PI, false)
+				context.lineWidth = 1
+				context.strokeStyle = '#ff0000'//'#00ff00'
+				context.stroke()
+			}
+
+			if (show_image_overlay) {
+				draw_line(-57, 12, -57, 14.5)
+				draw_line(-59.43, 13.16, -51.02, 14.82)
+				draw_circle(-57.7, 13.3)
+				// draw_line(-57.7, 13.3, -56.7, 13.3)
+				// draw_line(-57.7, 13.3, -57.7, 12.3)
+				draw_line(-59, 10.5, -52, 10.5)
+				draw_line(-59, 8.5, -52, 8.5)
+			}
 		}
 	</script>
+
 	<script>
 		request_snapshots()
 	</script>
