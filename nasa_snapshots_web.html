@@ -1,6 +1,6 @@
 <html>
 <head>
-	<meta charset='UTF-8'>
+	<meta charset="UTF-8">
 	<title>NASA Terra/Aqua MODIS Snapshots</title>
 	<style>
 		.snapshots-input {
@@ -20,74 +20,110 @@
 			padding: 5px;
 		}
 	</style>
+
+	<script src="https://d3js.org/d3.v5.min.js"></script>
+	<script src="https://momentjs.com/downloads/moment.min.js"></script>
+	
+	<!-- CodeMirror -->
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.55.0/codemirror.min.css" />
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.55.0/codemirror.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.55.0/addon/edit/matchbrackets.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.55.0/addon/edit/closebrackets.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.55.0/addon/comment/continuecomment.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.55.0/addon/comment/comment.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.55.0/mode/javascript/javascript.min.js"></script>
 </head>
 <body>
 	<h2>NASA Terra/Aqua MODIS Snapshots</h2>
 
 	<p>
 		<div>
-			<a href='https://wvs.earthdata.nasa.gov/'>NASA Snapshots</a>
+			<a href="https://wvs.earthdata.nasa.gov/">NASA Snapshots</a>
 		</div>
 	
 		<div>
-			<a href='https://worldview.earthdata.nasa.gov/'>NASA Worldview</a>
+			<a href="https://worldview.earthdata.nasa.gov/">NASA Worldview</a>
 		</div>
 	
 		<div>
-			<a href='https://earth.esa.int/web/guest/missions/3rd-party-missions/current-missions/terraaqua-modis'>Terra/Aqua MODIS Information</a>
+			<a href="https://earth.esa.int/web/guest/missions/3rd-party-missions/current-missions/terraaqua-modis">Terra/Aqua MODIS Information</a>
 		</div>
 	</p>
 
-	<div class='snapshots-input'>
-		<h4>Date Range</h4>
-		<h4>Longitude</h4>
-		<h4>Latitude</h4>
-		<h4>Image</h4>
-
-		<div class='snapshots-input-group'>
-			<label for="start_date">start:</label>
-			<input id='start_date' type='text' value='2020-01-07'>
-		</div>
-		<div class='snapshots-input-group'>
-			<label for="longitude_min">min:</label>
-			<input id='longitude_min' type='text' value='-60'>
-		</div>
-		<div class='snapshots-input-group'>
-			<label for="latitude_min">min:</label>
-			<input id='latitude_min' type='text' value='6'>
-		</div>
-		<div class='snapshots-input-group'>
-			<label for="image_width">width:</label>
-			<input id='image_width' type='text' value='500'>
-		</div>
-
-		<div class='snapshots-input-group'>
-			<label for="end_date">end:</label>
-			<input id='end_date' type='text' value='2020-01-12'>
-		</div>
-		<div class='snapshots-input-group'>
-			<label for="longitude_max">max:</label>
-			<input id='longitude_max' type='text' value='-50.0'>
-		</div>
-		<div class='snapshots-input-group'>
-			<label for="latitude_max">max:</label>
-			<input id='latitude_max' type='text' value='16.0'>
-		</div>
-		<div class='snapshots-input-group'>
-			<div></div>
-			<div>
-				<input type="checkbox" id="image_overlay" checked>
-  				<label for="image_overlay">overlay</label>
+	<div style="display: grid; grid-template-columns: 1fr 1fr 1fr;">
+		<div>
+			<textarea id="nasa-snapshot-settings">{
+	"date": {
+		"start": "2020-02-14",
+		"end": "2020-02-16"
+	},
+	"latitude": {
+		"min": 6,
+		"max": 16
+	},
+	"longitude": {
+		"min": -60,
+		"max": -50
+	},
+	"image": {
+		"width": 500
+	}
+}</textarea>
+			<div style="display: grid; grid-template-columns: 1fr 1fr;">
+				<div>
+					<button onclick="request_snapshots()">Request Snapshots</button>
+				</div>
+				<div>
+					<button onclick="reformat_json(snapshot_settings_editor)">Reformat</button>
+				</div>
 			</div>
 		</div>
-
-		<div class='snapshots-request'>
-			<button onclick='request_snapshots()'>Request</button>
+		<div>
+			<textarea id="information-settings">{
+	"overlay": true
+}</textarea>
+			<div style="display: grid; grid-template-columns: 1fr 1fr;">
+				<div>
+					<button onclick="update_information()">Update Information</button>
+				</div>
+				<div>
+					<button onclick="reformat_json(information_settings_editor)">Reformat</button>
+				</div>
+			</div>
+		</div>
+		<div>
+			<textarea id="additional-data">{}</textarea>
+			<div style="display: grid; grid-template-columns: 1fr 1fr;">
+				<div>
+					<button onclick="update_data()">Update Data</button>
+				</div>
+				<div>
+					<button onclick="reformat_json(additional_data_editor)">Reformat</button>
+				</div>
+			</div>
 		</div>
 	</div>
 
-	<p>
-		<table id='nasa_snapshot_table'>
+	<script>
+		editor_settings = {
+			mode: "application/json",
+			lineNumbers: true,
+			matchBrackets: true,
+			autoCloseBrackets: true,
+			lineWrapping: true
+		}
+
+		const snapshot_settings_editor = CodeMirror.fromTextArea(document.getElementById("nasa-snapshot-settings"), editor_settings);
+		const information_settings_editor = CodeMirror.fromTextArea(document.getElementById("information-settings"), editor_settings);
+		const additional_data_editor = CodeMirror.fromTextArea(document.getElementById("additional-data"), editor_settings);
+
+		function reformat_json(editor) {
+			editor.setValue(JSON.stringify(JSON.parse(editor.getValue()), null, 4))
+		}
+	</script>
+
+	<div>
+		<table id="nasa_snapshot_table">
 			<thead>
 				<tr>
 					<th>Date</th>
@@ -98,125 +134,235 @@
 			<tbody>
 			</tbody>
 		</table>
-	</p>
+	</div>
 	
-	<script src='https://d3js.org/d3.v5.min.js'></script>
-	<script src='https://momentjs.com/downloads/moment.min.js'></script>
 
 	<script>
+		settings = {
+			"snap": JSON.parse(snapshot_settings_editor.getValue()),
+			"info": JSON.parse(information_settings_editor.getValue()),
+			"data": JSON.parse(additional_data_editor.getValue())
+		}
+
+		function update_image_height() {
+			const lat_min = settings["snap"]["latitude"]["min"]
+			const lat_max = settings["snap"]["latitude"]["max"]
+			const lon_min = settings["snap"]["longitude"]["min"]
+			const lon_max = settings["snap"]["longitude"]["max"]
+			const scale_factor = (lon_max - lon_min) / (lat_max - lat_min)
+			const width = settings["snap"]["image"]["width"]
+			settings["snap"]["image"]["height"] = Math.round(width / scale_factor)
+		}
+
 		function request_snapshots() {
-			const start_date_str = document.getElementById('start_date').value
-			const end_date_str = document.getElementById('end_date').value
+			settings["snap"] = JSON.parse(snapshot_settings_editor.getValue())
+			update_image_height()
 
-			const start_date = moment(start_date_str)
-			const end_date = moment(end_date_str).add(1, 'days')
+			const start_date = moment(settings["snap"]["date"]["start"])
+			const end_date = moment(settings["snap"]["date"]["end"]).add(1, "days")
 			
-			const time_format = d3.timeFormat('%Y-%m-%d')
+			const time_format = d3.timeFormat("%Y-%m-%d")
 		
-			const tbody = d3.select('#nasa_snapshot_table').select('tbody')
+			const tbody = d3.select("#nasa_snapshot_table").select("tbody")
 
-			tbody.selectAll('tr').remove()
+			tbody.selectAll("tr").remove()
 
-			tbody.selectAll('tr')
+			tbody.selectAll("tr")
 				.data(d3.timeDay.range(start_date.toDate(), end_date.toDate()))
 				.enter()
 				.each(d => {
-					const tr = tbody.append('tr')
-					tr.append('td').text(time_format(d))
-					add_nasa_snapshot(tr.append('td'), 'Terra', time_format(d))
-					add_nasa_snapshot(tr.append('td'), 'Aqua', time_format(d))
+					const tr = tbody.append("tr")
+					tr.append("td").text(time_format(d))
+					add_nasa_snapshot(tr.append("td"), "Terra", time_format(d))
+					add_nasa_snapshot(tr.append("td"), "Aqua", time_format(d))
 				})
+			
+			update_data()
 		}
 		
 		function add_nasa_snapshot(table_cell, satellite, time) {
-			const latitude_min = parseFloat(document.getElementById('latitude_min').value)
-			const latitude_max = parseFloat(document.getElementById('latitude_max').value)
-			const longitude_min = parseFloat(document.getElementById('longitude_min').value)
-			const longitude_max = parseFloat(document.getElementById('longitude_max').value)
-			const show_image_overlay = document.getElementById('image_overlay').checked
+			const lat_min = settings["snap"]["latitude"]["min"]
+			const lat_max = settings["snap"]["latitude"]["max"]
+			const lon_min = settings["snap"]["longitude"]["min"]
+			const lon_max = settings["snap"]["longitude"]["max"]
+			const width = settings["snap"]["image"]["width"]
+			const height = settings["snap"]["image"]["height"]
 
-			const scale_factor = (longitude_max - longitude_min) / (latitude_max - latitude_min)
+			const bbox_str = String(lat_min) + "," + String(lon_min) + "," + String(lat_max) + "," + String(lon_max)
+			const v_str = String(lon_min) + "," + String(lat_min) + "," + String(lon_max) + "," + String(lat_max)
 
-			const width = parseInt(document.getElementById('image_width').value)
-			const height = Math.round(width / scale_factor)
+			console.log(bbox_str, v_str, width, height)
 
-			const bbox_str = String(latitude_min)
-			+ ',' + String(longitude_min)
-			+ ',' + String(latitude_max)
-			+ ',' + String(longitude_max)
+			const layers = "MODIS_" + satellite + "_CorrectedReflectance_TrueColor"
 
-			const v_str = String(longitude_min)
-			+ ',' + String(latitude_min)
-			+ ',' + String(longitude_max)
-			+ ',' + String(latitude_max)
-
-			console.log(bbox_str, v_str, scale_factor, width, height)
-
-			const layers = 'MODIS_' + satellite + '_CorrectedReflectance_TrueColor'
+			const worldview_link_url = "https://worldview.earthdata.nasa.gov/?p=geographic&l=" + layers + "&t=" + time + "&v=" + v_str
+			const worldview_snapshot_url = "https://wvs.earthdata.nasa.gov/api/v1/snapshot?REQUEST=GetSnapshot&LAYERS=" + layers + "&CRS=EPSG:4326&TIME=" + time + "&WRAP=DAY&BBOX=" + bbox_str + "&FORMAT=image/png&WIDTH=" + String(width) + "&HEIGHT=" + String(height) + "&AUTOSCALE=TRUE"
 			
-			const worldview_link = table_cell.append('a')
-				.attr('href', 'https://worldview.earthdata.nasa.gov/?p=geographic&l=' + layers + '&t=' + time + '&v=' + v_str)
-				.attr('target', '_blank')
-				.attr('rel', 'noopener noreferrer')
+			const worldview_link = table_cell.append("a")
+				.attr("href", worldview_link_url)
+				.attr("target", "_blank")
+				.attr("rel", "noopener noreferrer")
 			
-			const container = worldview_link.append('div')
-				.style('position', 'relative')
+			const container = worldview_link.append("div")
+				.style("position", "relative")
 			
-			const worldview_image = container.append('img')
-				.attr('src', 'https://wvs.earthdata.nasa.gov/api/v1/snapshot?REQUEST=GetSnapshot&LAYERS=' + layers + '&CRS=EPSG:4326&TIME=' + time + '&WRAP=DAY&BBOX=' + bbox_str + '&FORMAT=image/png&WIDTH=' + String(width) + '&HEIGHT=' + String(height) + '&AUTOSCALE=TRUE')
-				.style('z-index', -1)
-				.style('position', 'absolute')
-				.style('left', '0px')
-				.style('top', '0px')
+			const worldview_image = container.append("img")
+				.attr("src", worldview_snapshot_url)
+				.style("z-index", -1)
+				.style("position", "absolute")
+				.style("left", "0px")
+				.style("top", "0px")
 			
-			const worldview_canvas = container.append('canvas')
-				.attr('width', width)
-				.attr('height', height)
+			const worldview_svg = container.append("svg")
+				.attr("id", "svg_" + satellite + "_" + time)
+				.attr("width", width)
+				.attr("height", height)
+				.style("z-index", 0)
+			
+			const tooltip = container.append("div")
+				.attr("id", "tooltip_" + satellite + "_" + time)
+				.attr("class", "tooltip")
+				.style("z-index", 1)
+				.style("opacity", 0)
+				.style("position", "absolute")
+				.style("background-color", "white")
+				.style("border", "solid")
+				.style("border-width", "1px")
+				.style("border-radius", "2px")
+				.style("padding", "2px")
+		}
 
-			const context = worldview_canvas.node().getContext('2d')
+		function get_pos(lon, lat) {
+			const lat_min = settings["snap"]["latitude"]["min"]
+			const lat_max = settings["snap"]["latitude"]["max"]
+			const lon_min = settings["snap"]["longitude"]["min"]
+			const lon_max = settings["snap"]["longitude"]["max"]
+			const width = settings["snap"]["image"]["width"]
+			const height = settings["snap"]["image"]["height"]
+			const x = (lon - lon_min) / (lon_max - lon_min) * width
+			const y = (lat_max - lat) / (lat_max - lat_min) * height
+			return [x, y]
+		}
 
-			function get_pos(lon, lat) {
-				const x = (lon - longitude_min) / (longitude_max - longitude_min) * width
-				const y = (latitude_max - lat) / (latitude_max - latitude_min) * height
-				return [x, y]
+		function draw_line(svg, lon_a, lat_a, lon_b, lat_b, width=2, color="red") {
+			const pos_a = get_pos(lon_a, lat_a)
+			const pos_b = get_pos(lon_b, lat_b)
+			return svg.append("line")
+				.attr("x1", pos_a[0])
+				.attr("y1", pos_a[1])
+				.attr("x2", pos_b[0])
+				.attr("y2", pos_b[1])
+				.attr("stroke-width", width)
+				.attr("stroke", color)
+		}
+
+		function draw_point(svg, lon, lat, size, color) {
+			const pos = get_pos(lon, lat)
+			return svg.append("circle")
+				.attr("cx", pos[0])
+				.attr("cy", pos[1])
+				.attr("r", size)
+				.attr("stroke-width", 2)
+				.attr("stroke", color)
+				.attr("fill", "fill")
+		}
+
+		function draw_halo_circle(svg, lon, lat) {
+			const lat_min = settings["snap"]["latitude"]["min"]
+			const lat_max = settings["snap"]["latitude"]["max"]
+			const lon_min = settings["snap"]["longitude"]["min"]
+			const lon_max = settings["snap"]["longitude"]["max"]
+			const width = settings["snap"]["image"]["width"]
+			const height = settings["snap"]["image"]["height"]
+			const pos = get_pos(lon, lat)
+			const size = 1 / (lon_max - lon_min) * width
+			return svg.append("circle")
+				.attr("cx", pos[0])
+				.attr("cy", pos[1])
+				.attr("r", size)
+				.attr("stroke-width", 2)
+				.attr("stroke", "red")
+				.attr("fill", "none")
+		}
+
+		function update_information() {
+			settings["info"] = JSON.parse(information_settings_editor.getValue())
+
+			const tbody = d3.select("#nasa_snapshot_table").select("tbody")
+
+			tbody.selectAll("svg")
+				.each(function() {
+					const svg = d3.select(this)
+					svg.selectAll("*").remove()
+				})
+
+			if (settings["info"]["overlay"]) {
+				tbody.selectAll("svg")
+					.each(function() {
+						const svg = d3.select(this)
+						const line = draw_line(svg, -57, 12, -57, 14.5)
+						draw_line(svg, -59.43, 13.16, -51.02, 14.82)
+						const halo_circle = draw_halo_circle(svg, -57.7, 13.3)
+						// draw_line(svg, -57.7, 13.3, -56.7, 13.3)
+						// draw_line(svg, -57.7, 13.3, -57.7, 12.3)
+						draw_line(svg, -59, 10.5, -52, 10.5)
+						draw_line(svg, -59, 8.5, -52, 8.5)
+					})
+
+					const start_date = moment(settings["snap"]["date"]["start"])
+					const end_date = moment(settings["snap"]["date"]["end"]).add(1, "days")
+
+					const time_format = d3.timeFormat("%Y-%m-%d")
+
+					d3.timeDay.range(start_date.toDate(), end_date.toDate())
+					.forEach(function(d) {
+						svg = d3.select("#" + "svg_" + time_format(d))
+						
+					})
+				
+				soundings_data.forEach(function(d) {
+					["Terra", "Aqua"].forEach(function(satellite) {
+						const svg_id = "svg_" + satellite + "_" + d["date"]
+						const tooltip_id = "tooltip_" + satellite + "_" + d["date"]
+						if (document.getElementById(svg_id)) {
+							const svg = d3.select("#" + svg_id)
+							const tooltip = d3.select("#" + tooltip_id)
+							const lat = d["positions"]["lat"]
+							const lon = d["positions"]["lon"]
+							const point = draw_point(svg, lon[0], lat[0], 3, "green")
+							const line = draw_line(svg, lon[0], lat[0], lon[1], lat[1], 1, "green")
+							point.on("mouseover", function() {
+								tooltip
+								.style("opacity", 1)
+							})
+    						.on("mousemove", function() {
+								tooltip
+								.html(d["sounding"] + ", " + d["time"])
+								.style("left", (d3.mouse(this)[0]+15) + "px")
+								.style("top", (d3.mouse(this)[1]) + "px")
+							})
+    						.on("mouseleave", function() {
+								tooltip
+								.style("opacity", 0)
+							})
+						}
+					})
+				})
 			}
+		}
 
-			function draw_line(lon_a, lat_a, lon_b, lat_b) {
-				const pos_a = get_pos(lon_a, lat_a)
-				const pos_b = get_pos(lon_b, lat_b)
-				console.log(pos_a, pos_b)
-				context.beginPath()
-				context.moveTo(pos_a[0], pos_a[1])
-				context.lineTo(pos_b[0], pos_b[1])
-				context.lineWidth = 1
-				context.strokeStyle = '#ff0000'//'#00ff00'
-				context.stroke()
-			}
-
-			function draw_circle(lon, lat) {
-				const pos = get_pos(lon, lat)
-				const size = 1 / (longitude_max - longitude_min) * width
-				context.beginPath()
-				context.arc(pos[0], pos[1], size, 0, 2 * Math.PI, false)
-				context.lineWidth = 1
-				context.strokeStyle = '#ff0000'//'#00ff00'
-				context.stroke()
-			}
-
-			if (show_image_overlay) {
-				draw_line(-57, 12, -57, 14.5)
-				draw_line(-59.43, 13.16, -51.02, 14.82)
-				draw_circle(-57.7, 13.3)
-				// draw_line(-57.7, 13.3, -56.7, 13.3)
-				// draw_line(-57.7, 13.3, -57.7, 12.3)
-				draw_line(-59, 10.5, -52, 10.5)
-				draw_line(-59, 8.5, -52, 8.5)
-			}
+		function update_data() {
+			settings["data"] = JSON.parse(additional_data_editor.getValue())
+			update_information()
 		}
 	</script>
 
+	<script src="soundings.js"></script>
+
 	<script>
+		console.log(soundings_data[0])
 		request_snapshots()
+		update_data()
 	</script>
 </body>
 </html>
