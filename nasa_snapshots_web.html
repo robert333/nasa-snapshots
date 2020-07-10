@@ -54,7 +54,7 @@
 		<div>
 			<textarea id="nasa-snapshot-settings">{
 	"date": {
-		"start": "2020-02-14",
+		"start": "2020-02-13",
 		"end": "2020-02-16"
 	},
 	"latitude": {
@@ -80,7 +80,9 @@
 		</div>
 		<div>
 			<textarea id="information-settings">{
-	"overlay": true
+	"grid": true,
+	"coordinate": true,
+	"soundings": true
 }</textarea>
 			<div style="display: grid; grid-template-columns: 1fr 1fr;">
 				<div>
@@ -219,9 +221,23 @@
 				.attr("height", height)
 				.style("z-index", 0)
 			
-			const tooltip = container.append("div")
-				.attr("id", "tooltip_" + satellite + "_" + time)
+			const tooltip_coordinate = container.append("div")
+				.attr("id", "tooltip_coordinate_" + satellite + "_" + time)
 				.attr("class", "tooltip")
+				.attr("pointer-events", "none")
+				.style("z-index", 1)
+				.style("opacity", 0)
+				.style("position", "absolute")
+				.style("background-color", "white")
+				.style("border", "solid")
+				.style("border-width", "1px")
+				.style("border-radius", "2px")
+				.style("padding", "2px")
+			
+			const tooltip_sounding = container.append("div")
+				.attr("id", "tooltip_sounding_" + satellite + "_" + time)
+				.attr("class", "tooltip")
+				.attr("pointer-events", "none")
 				.style("z-index", 1)
 				.style("opacity", 0)
 				.style("position", "absolute")
@@ -244,6 +260,18 @@
 			return [x, y]
 		}
 
+		function get_coord(x, y) {
+			const lat_min = settings["snap"]["latitude"]["min"]
+			const lat_max = settings["snap"]["latitude"]["max"]
+			const lon_min = settings["snap"]["longitude"]["min"]
+			const lon_max = settings["snap"]["longitude"]["max"]
+			const width = settings["snap"]["image"]["width"]
+			const height = settings["snap"]["image"]["height"]
+			const lon = x / width * (lon_max - lon_min) + lon_min
+			const lat = -y / height * (lat_max - lat_min) + lat_max
+			return [lon, lat]
+		}
+
 		function draw_line(svg, lon_a, lat_a, lon_b, lat_b, width=2, color="red") {
 			const pos_a = get_pos(lon_a, lat_a)
 			const pos_b = get_pos(lon_b, lat_b)
@@ -262,24 +290,20 @@
 				.attr("cx", pos[0])
 				.attr("cy", pos[1])
 				.attr("r", size)
-				.attr("stroke-width", 2)
-				.attr("stroke", color)
-				.attr("fill", "fill")
+				.attr("stroke-width", 1)
+				.attr("stroke", "black")
+				.attr("fill", color)
 		}
 
-		function draw_halo_circle(svg, lon, lat) {
-			const lat_min = settings["snap"]["latitude"]["min"]
-			const lat_max = settings["snap"]["latitude"]["max"]
+		function draw_halo_circle(svg, lon, lat, size) {
 			const lon_min = settings["snap"]["longitude"]["min"]
 			const lon_max = settings["snap"]["longitude"]["max"]
 			const width = settings["snap"]["image"]["width"]
-			const height = settings["snap"]["image"]["height"]
 			const pos = get_pos(lon, lat)
-			const size = 1 / (lon_max - lon_min) * width
 			return svg.append("circle")
 				.attr("cx", pos[0])
 				.attr("cy", pos[1])
-				.attr("r", size)
+				.attr("r", size / (lon_max - lon_min) * width)
 				.attr("stroke-width", 2)
 				.attr("stroke", "red")
 				.attr("fill", "none")
@@ -296,13 +320,14 @@
 					svg.selectAll("*").remove()
 				})
 
-			if (settings["info"]["overlay"]) {
+			if (settings["info"]["grid"]) {
 				tbody.selectAll("svg")
 					.each(function() {
 						const svg = d3.select(this)
 						const line = draw_line(svg, -57, 12, -57, 14.5)
 						draw_line(svg, -59.43, 13.16, -51.02, 14.82)
-						const halo_circle = draw_halo_circle(svg, -57.7, 13.3)
+						const halo_circle = draw_halo_circle(svg, -57.7, 13.3, 1)
+						// const halo_2_circle = draw_halo_circle(svg, -54.5, 13.9, 0.8)
 						// draw_line(svg, -57.7, 13.3, -56.7, 13.3)
 						// draw_line(svg, -57.7, 13.3, -57.7, 12.3)
 						draw_line(svg, -59, 10.5, -52, 10.5)
@@ -319,27 +344,75 @@
 						svg = d3.select("#" + "svg_" + time_format(d))
 						
 					})
-				
+			}
+
+			if (settings["info"]["coordinate"]) {
+				const start_date = moment(settings["snap"]["date"]["start"])
+				const end_date = moment(settings["snap"]["date"]["end"]).add(1, "days")
+
+				const time_format = d3.timeFormat("%Y-%m-%d")
+
+				d3.timeDay.range(start_date.toDate(), end_date.toDate()).forEach(function(d) {
+					["Terra", "Aqua"].forEach(function(satellite) {
+						const svg_id = "svg_" + satellite + "_" + time_format(d)
+						const tooltip_id = "tooltip_coordinate_" + satellite + "_" + time_format(d)
+						console.assert(document.getElementById(svg_id), svg_id)
+						console.assert(document.getElementById(tooltip_id), tooltip_id)
+						const svg = d3.select("#" + svg_id)
+						const tooltip = d3.select("#" + tooltip_id)
+
+						svg
+						.on("mouseenter", function() {
+							tooltip
+							.style("opacity", 1)
+						})
+						.on("mousemove", function() {
+							const mouse = d3.mouse(this)
+							const coord = get_coord(mouse[0], mouse[1])
+							tooltip
+							.html(coord[0].toFixed(2) + ", " + coord[1].toFixed(2))
+							.style("left", (mouse[0]) + "px")
+							.style("top", (mouse[1] + 50) + "px")
+						})
+						.on("mouseleave", function() {
+							tooltip
+							.style("opacity", 0)
+						})
+					})
+				})
+			}
+
+			if (settings["info"]["soundings"]) {
 				soundings_data.forEach(function(d) {
 					["Terra", "Aqua"].forEach(function(satellite) {
 						const svg_id = "svg_" + satellite + "_" + d["date"]
-						const tooltip_id = "tooltip_" + satellite + "_" + d["date"]
+						const tooltip_id = "tooltip_sounding_" + satellite + "_" + d["date"]
 						if (document.getElementById(svg_id)) {
+							console.assert(document.getElementById(tooltip_id), tooltip_id)
 							const svg = d3.select("#" + svg_id)
 							const tooltip = d3.select("#" + tooltip_id)
 							const lat = d["positions"]["lat"]
 							const lon = d["positions"]["lon"]
-							const point = draw_point(svg, lon[0], lat[0], 3, "green")
-							const line = draw_line(svg, lon[0], lat[0], lon[1], lat[1], 1, "green")
+
+							const lat_0 = d["ascending"] ? lat[0] : lat[1]
+							const lat_1 = d["ascending"] ? lat[1] : lat[0]
+							const lon_0 = d["ascending"] ? lon[0] : lon[1]
+							const lon_1 = d["ascending"] ? lon[1] : lon[0]
+							const color = d["ascending"] ? "green" : "orange"
+
+							const point = draw_point(svg, lon_0, lat_0, 3, color)
+							const line = draw_line(svg, lon_0, lat_0, lon_1, lat_1, 1, color)
+
 							point.on("mouseover", function() {
 								tooltip
 								.style("opacity", 1)
 							})
     						.on("mousemove", function() {
+								const mouse = d3.mouse(this)
 								tooltip
 								.html(d["sounding"] + ", " + d["time"])
-								.style("left", (d3.mouse(this)[0]+15) + "px")
-								.style("top", (d3.mouse(this)[1]) + "px")
+								.style("left", (mouse[0] + 20) + "px")
+								.style("top", (mouse[1]) + "px")
 							})
     						.on("mouseleave", function() {
 								tooltip
